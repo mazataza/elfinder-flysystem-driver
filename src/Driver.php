@@ -277,39 +277,21 @@ class Driver extends elFinderVolumeDriver
             return array();
         }
 
-        try {
-            $meta = $this->fs->getMetadata($path);
-        } catch (\Exception $e) {
-            return array();
-        }
-
-        if(false === $meta) {
-            return $stat;
-        }
-
-        // Set item filename.extension to `name` if exists
-        if (isset($meta['filename']) && isset($meta['extension'])) {
-            $stat['name'] = $meta['filename'];
-            if ($meta['extension'] !== '') {
+        $stat['name'] = basename($path);
+        /*if ($meta['extension'] !== '') {
                 $stat['name'] .= '.' . $meta['extension'];
-            }
-        }
+        }*/
+        
 
         // Get timestamp/size if available
-        if (isset($meta['timestamp'])) {
-            $stat['ts'] = $meta['timestamp'];
-        }
-        if (isset($meta['size'])) {
-            $stat['size'] = $meta['size'];
-        }
+        $stat['ts'] = $this->fs->lastModified($path);
+        
+        $stat['size'] = $this->fs->fileSize($path);
+        
 
         // Check if file, if so, check mimetype when available
-        if ($meta['type'] == 'file') {
-            if(isset($meta['mimetype'])) {
-                $stat['mime'] = $meta['mimetype'];
-            } else {
-                $stat['mime'] = $this->fs->getMimetype($path);
-            }
+        if ($this->fs->has($path) {
+           $stat['mime'] = $this->fs->mimeType($path);
 
             $imgMimes = ['image/jpeg', 'image/png', 'image/gif'];
             if ($this->urlBuilder && in_array($stat['mime'], $imgMimes)) {
@@ -342,14 +324,8 @@ class Driver extends elFinderVolumeDriver
      **/
     protected function _subdirs($path)
     {
-        $contents = $this->fs->listContents($path);
-
-        $filter = function ($item) {
-            return $item['type'] == 'dir';
-        };
-
-        $dirs = array_filter($contents, $filter);
-        return !empty($dirs);
+        $contents = $this->fs->listContents($path)->filter(fn (StorageAttributes $attributes) => $attributes->isDir());
+        return !empty($contents);
     }
 
     /**
@@ -425,7 +401,7 @@ class Driver extends elFinderVolumeDriver
     {
         $path = $this->_joinPath($path, $name);
 
-        if ($this->fs->createDir($path) === false) {
+        if ($this->fs->createDirectory($path) === false) {
             return false;
         }
 
@@ -482,7 +458,7 @@ class Driver extends elFinderVolumeDriver
     {
         $path = $this->_joinPath($target, $name);
 
-        if ($this->fs->rename($source, $path) === false) {
+        if ($this->fs->move($source, $path) === false) {
             return false;
         }
 
@@ -535,7 +511,7 @@ class Driver extends elFinderVolumeDriver
             $config['visibility'] = $this->options['visibility'];
         }
 
-        if ($this->fs->putStream($path, $fp, $config) === false) {
+        if ($this->fs->writeStream($path, $fp, $config) === false) {
             return false;
         }
 
@@ -562,7 +538,7 @@ class Driver extends elFinderVolumeDriver
      **/
     protected function _filePutContents($path, $content)
     {
-        return $this->fs->put($path, $content);
+        return $this->fs->write($path, $content);
     }
 
     /*********************** paths/urls *************************/
